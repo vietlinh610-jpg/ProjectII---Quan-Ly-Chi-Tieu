@@ -180,8 +180,23 @@
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
                 tools:listitem="@layout/item_transaction"
                 tools:visibility="visible" />
+
+
         </LinearLayout>
 
     </LinearLayout>
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabBudget"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginBottom="100dp"
+        android:contentDescription="Hạn mức chi tiêu"
+        app:backgroundTint="#4CAF50"
+        app:elevation="10dp"
+        app:pressedTranslationZ="15dp"
+        app:srcCompat="@android:drawable/ic_menu_edit"
+        app:tint="@android:color/white" />
+
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

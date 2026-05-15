@@ -3,6 +3,9 @@ package com.example.quanlychitieusms
 import androidx.lifecycle.*
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import java.text.SimpleDateFormat
+import java.util.Locale
+
 
 enum class ViewMode { MONTH, YEAR, ALL_YEARS }
 
@@ -18,11 +21,22 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
 
     private var lastSource: LiveData<*>? = null
     val chartData = MediatorLiveData<Any>()
+    // Thêm vào TransactionViewModel.kt
+    val budgetProgress: LiveData<List<BudgetProgress>> = currentDate.switchMap { cal ->
+        val monthYear = SimpleDateFormat("MM/yyyy", Locale.getDefault()).format(cal.time)
+        repository.getBudgetProgress(monthYear)
+    }
+
+    // Thêm hàm này để lưu ngân sách
+    fun saveBudget(budget: Budget) = viewModelScope.launch {
+        repository.saveBudget(budget)
+    }
 
     init {
         chartData.addSource(_currentDate) { updateChartSource() }
         chartData.addSource(_viewMode) { updateChartSource() }
     }
+
 
     private fun updateChartSource() {
         val cal = _currentDate.value ?: return
@@ -74,9 +88,7 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
     fun delete(transaction: TransactionItem) = viewModelScope.launch { repository.delete(transaction) }
     fun getBudgetProgress(month: String) = repository.getBudgetProgress(month)
 
-    fun saveBudget(budget: Budget) = viewModelScope.launch {
-        repository.saveBudget(budget)
-    }
+
 
 }
 

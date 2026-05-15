@@ -21,6 +21,7 @@ import com.github.mikephil.charting.data.BarEntry
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.button.MaterialButtonToggleGroup
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -28,93 +29,37 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
 
     private val database by lazy { AppDatabase.getDatabase(this) }
-    private val repository by lazy {
-        TransactionRepository(database.transactionDao(), database.budgetDao())
-    }
-
-    private val viewModel: TransactionViewModel by viewModels {
-        TransactionViewModelFactory(repository)
-    }
-
+    private val repository by lazy { TransactionRepository(database.transactionDao(), database.budgetDao()) }
+    private val viewModel: TransactionViewModel by viewModels { TransactionViewModelFactory(repository) }
     private lateinit var adapter: TransactionAdapter
-
-    // 1. Cập nhật hàm showSetBudgetDialog để lấy tháng linh hoạt
-    private fun showSetBudgetDialog(category: String) {
-        val input = EditText(this).apply {
-            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
-            hint = "Nhập hạn mức chi tiêu (VND)..."
-        }
-
-        AlertDialog.Builder(this)
-            .setTitle("Đặt ngân sách cho $category")
-            .setView(input)
-            .setPositiveButton("Lưu") { _, _ ->
-                val amount = input.text.toString().toDoubleOrNull() ?: 0.0
-
-                // Lấy tháng/năm dựa trên thời gian đang xem trong ViewModel
-                val calendar = viewModel.currentDate.value ?: Calendar.getInstance()
-                val currentMonth = SimpleDateFormat("MM/yyyy", Locale.getDefault()).format(calendar.time)
-
-                val newBudget = Budget(category, amount, currentMonth)
-                viewModel.saveBudget(newBudget)
-
-                Toast.makeText(this, "Đã lưu ngân sách $category cho tháng $currentMonth", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("Hủy", null)
-            .show()
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Xin quyền đọc SMS
+        // 1. Cấp quyền SMS
         if (checkSelfPermission(Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.RECEIVE_SMS), 1)
         }
 
-        // Thiết lập Lịch sử
+        // 2. Thiết lập RecyclerView
         val recyclerView = findViewById<RecyclerView>(R.id.rvTransactions)
-        adapter = TransactionAdapter(emptyList()) { transaction ->
-            showEditDeleteDialog(transaction)
-        }
+        adapter = TransactionAdapter(emptyList()) { transaction -> showEditDeleteDialog(transaction) }
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
 
-        // --- THIẾT LẬP NÚT + (FAB) ---
-        val btnAdd = findViewById<MaterialButton>(R.id.fabAdd)
+        // 3. Thiết lập các nút bấm nổi (FAB)
+        findViewById<MaterialButton>(R.id.fabAdd).setOnClickListener { showAddManualDialog() }
+        findViewById<FloatingActionButton>(R.id.fabBudget).setOnClickListener { showBudgetManagementDialog() }
 
-        // Nhấn bình thường: Thêm chi tiêu thủ công
-        btnAdd.setOnClickListener {
-            showAddManualDialog()
-        }
-
-        // 2. NHẤN GIỮ: Đặt giới hạn chi tiêu (Ngân sách)
-        btnAdd.setOnLongClickListener {
-            val categories = arrayOf("Ăn uống", "Mua sắm", "Di chuyển", "Hóa đơn", "Khác")
-            AlertDialog.Builder(this)
-                .setTitle("Chọn danh mục để đặt ngân sách")
-                .setItems(categories) { _, which ->
-                    showSetBudgetDialog(categories[which])
-                }
-                .show()
-            true // Trả về true để hệ thống biết đã xử lý xong sự kiện nhấn giữ
-        }
-
+        // 4. Các sự kiện điều khiển (Xem tất cả, Toggle chế độ)
         val tvSeeAll = findViewById<TextView>(R.id.tvSeeAll)
         tvSeeAll.setOnClickListener {
-            if (recyclerView.visibility == View.GONE) {
-                recyclerView.visibility = View.VISIBLE
-                tvSeeAll.text = "Thu gọn"
-            } else {
-                recyclerView.visibility = View.GONE
-                tvSeeAll.text = "Xem tất cả"
-            }
+            recyclerView.visibility = if (recyclerView.visibility == View.GONE) View.VISIBLE else View.GONE
+            tvSeeAll.text = if (recyclerView.visibility == View.VISIBLE) "Thu gọn" else "Xem tất cả"
         }
 
-        // Bộ lọc chuyển đổi tháng/năm
-        val toggleGroup = findViewById<MaterialButtonToggleGroup>(R.id.toggleViewMode)
-        toggleGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
+        findViewById<MaterialButtonToggleGroup>(R.id.toggleViewMode).addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (isChecked) {
                 when (checkedId) {
                     R.id.btnMonthMode -> viewModel.setViewMode(ViewMode.MONTH)
@@ -125,111 +70,190 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Điều chỉnh thời gian lùi/ tăng
-        val tvMonthLabel = findViewById<TextView>(R.id.tvCurrentMonth)
-        val btnPrev = findViewById<ImageButton>(R.id.btnPrevMonth)
-        val btnNext = findViewById<ImageButton>(R.id.btnNextMonth)
+        findViewById<ImageButton>(R.id.btnPrevMonth).setOnClickListener { viewModel.changeDate(-1) }
+        findViewById<ImageButton>(R.id.btnNextMonth).setOnClickListener { viewModel.changeDate(1) }
 
+        // 5. Lắng nghe dữ liệu (Observers)
         viewModel.currentDate.observe(this) { calendar ->
-            val pattern = if (viewModel.viewMode.value == ViewMode.MONTH) "MMMM, yyyy" else "yyyy"
-            val sdf = SimpleDateFormat(pattern, Locale("vi", "VN"))
-            tvMonthLabel.text = sdf.format(calendar.time).replaceFirstChar { it.uppercase() }
-
-            // 3. (Tùy chọn) Kiểm tra vượt ngân sách khi đổi tháng
+            updateDateLabel(calendar)
             checkBudgetAlert(calendar)
         }
 
-        btnPrev.setOnClickListener { viewModel.changeDate(-1) }
-        btnNext.setOnClickListener { viewModel.changeDate(1) }
-
-        viewModel.chartData.observe(this) { data ->
-            if (data != null) {
-                updateBarChart(data)
-            }
+        viewModel.chartData.observe(this) { spentData ->
+            updateBarChart(spentData, viewModel.budgetProgress.value ?: emptyList())
         }
 
-        viewModel.allTransactions.observe(this) { transactions ->
-            adapter.updateData(transactions)
+        viewModel.budgetProgress.observe(this) { budgetData ->
+            updateBarChart(viewModel.chartData.value ?: emptyList<Any>(), budgetData)
         }
+
+        viewModel.allTransactions.observe(this) { transactions -> adapter.updateData(transactions) }
     }
 
-    // 4. Thêm hàm kiểm tra và cảnh báo nếu chi tiêu vượt mức
-    private fun checkBudgetAlert(calendar: Calendar) {
-        val monthYear = SimpleDateFormat("MM/yyyy", Locale.getDefault()).format(calendar.time)
-        viewModel.getBudgetProgress(monthYear).observe(this) { progressList ->
-            progressList.forEach { progress ->
-                if (progress.spentAmount > progress.limitAmount && progress.limitAmount > 0) {
-                    Toast.makeText(this, "Cảnh báo: Bạn đã tiêu quá ngân sách cho ${progress.category}!", Toast.LENGTH_LONG).show()
+    // --- QUẢN LÝ HẠN MỨC (BUDGET) ---
+
+    private fun showBudgetManagementDialog() {
+        val calendar = viewModel.currentDate.value ?: Calendar.getInstance()
+        val monthStr = SimpleDateFormat("MM/yyyy", Locale.getDefault()).format(calendar.time)
+        val progressList = viewModel.budgetProgress.value ?: emptyList()
+        val categories = arrayOf("Ăn uống", "Mua sắm", "Di chuyển", "Hóa đơn", "Khác")
+
+        val displayList = categories.map { catName ->
+            val limit = progressList.find { item->
+                item.category == catName }?.limitAmount ?: 0.0
+            "$catName: ${String.format("%,.0f", limit)} VND"
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("Hạn mức tháng $monthStr")
+            .setItems(displayList) { _, which -> showSetBudgetDialog(categories[which]) }
+            .setPositiveButton("Đóng", null).show()
+    }
+
+    private fun showSetBudgetDialog(category: String) {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+            hint = "Nhập số tiền (VND)..."
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Đặt ngân sách: $category")
+            .setView(input)
+            .setPositiveButton("Lưu") { _, _ ->
+                val amount = input.text.toString().toDoubleOrNull() ?: 0.0
+                val calendar = viewModel.currentDate.value ?: Calendar.getInstance()
+                val monthYear = SimpleDateFormat("MM/yyyy", Locale.getDefault()).format(calendar.time)
+                viewModel.saveBudget(Budget(category, amount, monthYear))
+                Toast.makeText(this, "Đã cập nhật hạn mức!", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Hủy", null).show()
+    }
+
+    // --- VẼ BIỂU ĐỒ CỘT ĐÔI ---
+
+    private fun updateBarChart(data: Any, budgetData: List<BudgetProgress>) {
+        val barChart = findViewById<BarChart>(R.id.barChart)
+        val xAxis = barChart.xAxis
+        val categories = listOf("Ăn uống", "Mua sắm", "Di chuyển", "Hóa đơn", "Khác")
+        val labels = ArrayList<String>()
+
+        if (viewModel.viewMode.value == ViewMode.MONTH) {
+            val monthlyData = data as? List<CategorySum> ?: emptyList()
+            val entriesSpent = ArrayList<BarEntry>()
+            val entriesLimit = ArrayList<BarEntry>()
+            val spentColors = ArrayList<Int>()
+
+            val spentMap = monthlyData.associateBy({ it.category }, { it.total })
+            val limitMap = budgetData.associateBy({ it.category }, { it.limitAmount })
+
+            categories.forEachIndexed { i, name ->
+                val spentValue = Math.abs(spentMap[name] ?: 0.0)
+                val limitValue = limitMap[name] ?: 0.0
+
+                entriesSpent.add(BarEntry(i.toFloat(), spentValue.toFloat()))
+                entriesLimit.add(BarEntry(i.toFloat(), limitValue.toFloat()))
+                labels.add(name)
+
+                // --- LOGIC ĐỔI MÀU Ở ĐÂY ---
+                if (limitValue > 0 && spentValue > limitValue) {
+                    // Nếu tiêu quá hạn mức: Đổi sang màu Đỏ
+                    spentColors.add(Color.RED)
+                } else {
+                    // Nếu vẫn trong hạn mức: Giữ màu Xanh mặc định
+                    spentColors.add(Color.parseColor("#1A73E8"))
                 }
             }
-        }
-    }
 
-    // --- PHẦN CÒN LẠI (Vẽ biểu đồ, Dialog thêm/sửa/xóa) GIỮ NGUYÊN ---
+            val setSpent = BarDataSet(entriesSpent, "Thực tế").apply {
+                colors = spentColors // Gán danh sách màu động
+                valueTextSize = 10f
+            }
 
-    private fun updateBarChart(data: Any) {
-        val barChart = findViewById<BarChart>(R.id.barChart)
-        val entries = ArrayList<BarEntry>()
-        val labels = ArrayList<String>()
-        val colors = ArrayList<Int>()
-        val xAxis = barChart.xAxis
+            val setLimit = BarDataSet(entriesLimit, "Hạn mức").apply {
+                color = Color.parseColor("#D3D3D3") // Hạn mức vẫn để màu xám nhẹ
+                valueTextSize = 10f
+            }
+            // --- CÔNG THỨC CĂN CHỈNH "TỈ LỆ VÀNG" ---
+            val groupSpace = 0.3f    // Khoảng cách giữa các nhóm
+            val barSpace = 0.05f     // Khoảng cách giữa 2 cột trong 1 nhóm
+            val barWidth = 0.3f      // Độ rộng của mỗi cột
+            // Tổng: (0.3 + 0.05) * 2 + 0.3 = 1.0 (Bắt buộc tổng phải là 1.0 để nhãn nằm giữa)
 
-        when (viewModel.viewMode.value) {
-            ViewMode.YEAR -> {
+            val barData = BarData(setSpent, setLimit)
+            barData.barWidth = barWidth
+            barChart.data = barData
+
+            // Chỉ định điểm bắt đầu và các khoảng cách
+            barChart.groupBars(0f, groupSpace, barSpace)
+
+            xAxis.setCenterAxisLabels(true)
+            xAxis.axisMinimum = 0f
+            xAxis.axisMaximum = categories.size.toFloat()
+            xAxis.granularity = 1f // Đảm bảo nhãn hiện đúng từng bước 1
+        } else {
+            // Logic cho Năm/Tất cả (Vẽ cột đơn)
+            val entries = ArrayList<BarEntry>()
+            if (viewModel.viewMode.value == ViewMode.YEAR) {
                 val yearlyData = data as? List<MonthlySum> ?: emptyList()
                 for (i in 0..11) {
-                    val monthStr = String.format("%02d", i + 1)
-                    val amount = yearlyData.find { it.month == monthStr }?.total ?: 0.0
-                    entries.add(BarEntry(i.toFloat(), amount.toFloat()))
+                    val amount = yearlyData.find { it.month == String.format("%02d", i + 1) }?.total ?: 0.0
+                    entries.add(BarEntry(i.toFloat(), Math.abs(amount).toFloat()))
                     labels.add("T${i + 1}")
-                    colors.add(Color.parseColor("#1A73E8"))
                 }
-                xAxis.labelCount = 12
-                xAxis.axisMinimum = -0.5f
-                xAxis.axisMaximum = 11.5f
             }
-            ViewMode.ALL_YEARS -> {
-                val yearlySummary = data as? List<YearlySummary> ?: emptyList()
-                yearlySummary.forEachIndexed { index, item ->
-                    entries.add(BarEntry(index.toFloat(), item.total.toFloat()))
-                    labels.add(item.year)
-                    colors.add(Color.parseColor("#4CAF50"))
-                }
-                xAxis.labelCount = yearlySummary.size
-                xAxis.axisMinimum = -0.5f
-                xAxis.axisMaximum = if (yearlySummary.isEmpty()) 0.5f else yearlySummary.size - 0.5f
-            }
-            else -> {
-                val monthlyData = data as? List<CategorySum> ?: emptyList()
-                val allCategories = listOf("Ăn uống", "Mua sắm", "Di chuyển", "Hóa đơn", "Khác")
-                val colorCodes = listOf("#FF9800", "#E91E63", "#4CAF50", "#2196F3", "#9E9E9E")
-                val dataMap = monthlyData.associateBy({ it.category }, { it.total })
-
-                allCategories.forEachIndexed { index, name ->
-                    val amount = dataMap[name] ?: 0.0
-                    entries.add(BarEntry(index.toFloat(), amount.toFloat()))
-                    labels.add(name)
-                    colors.add(Color.parseColor(colorCodes[index]))
-                }
-                xAxis.labelCount = allCategories.size
-                xAxis.axisMinimum = -0.5f
-                xAxis.axisMaximum = allCategories.size - 0.5f
-            }
+            barChart.data = BarData(BarDataSet(entries, "Chi tiêu").apply { color = Color.parseColor("#1A73E8") })
+            xAxis.setCenterAxisLabels(false)
         }
 
-        val dataSet = BarDataSet(entries, "Chi tiêu (VND)")
-        dataSet.colors = colors
-        dataSet.valueTextSize = 10f
-        barChart.data = BarData(dataSet)
         xAxis.valueFormatter = IndexAxisValueFormatter(labels)
         xAxis.position = XAxis.XAxisPosition.BOTTOM
-        xAxis.granularity = 1f
         xAxis.setDrawGridLines(false)
+
         barChart.description.isEnabled = false
         barChart.axisRight.isEnabled = false
         barChart.axisLeft.axisMinimum = 0f
         barChart.animateY(800)
         barChart.invalidate()
+    }
+
+    private fun checkBudgetAlert(calendar: Calendar) {
+        val monthYear = SimpleDateFormat("MM/yyyy", Locale.getDefault()).format(calendar.time)
+        viewModel.getBudgetProgress(monthYear).observe(this) { progressList ->
+            progressList.forEach { p ->
+                if (p.spentAmount > p.limitAmount && p.limitAmount > 0) {
+                    Toast.makeText(this, "⚠️ Vượt hạn mức ${p.category}!", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // --- CÁC HÀM PHỤ TRỢ (Dọn dẹp) ---
+
+    private fun updateDateLabel(calendar: Calendar?) {
+        val cal = calendar ?: return
+        val tvMonthLabel = findViewById<TextView>(R.id.tvCurrentMonth)
+        val btnPrev = findViewById<ImageButton>(R.id.btnPrevMonth)
+        val btnNext = findViewById<ImageButton>(R.id.btnNextMonth)
+
+        when (viewModel.viewMode.value) {
+            ViewMode.MONTH -> {
+                tvMonthLabel.text = SimpleDateFormat("MMMM, yyyy", Locale("vi", "VN")).format(cal.time).replaceFirstChar { it.uppercase() }
+                btnPrev.visibility = View.VISIBLE
+                btnNext.visibility = View.VISIBLE
+            }
+            ViewMode.YEAR -> {
+                tvMonthLabel.text = "Năm ${cal.get(Calendar.YEAR)}"
+                btnPrev.visibility = View.VISIBLE
+                btnNext.visibility = View.VISIBLE
+            }
+            ViewMode.ALL_YEARS -> {
+                tvMonthLabel.text = "Tổng chi tiêu các năm"
+                btnPrev.visibility = View.GONE
+                btnNext.visibility = View.GONE
+            }
+            else -> { // Thêm cái này để xử lý trường hợp null hoặc các giá trị khác
+                tvMonthLabel.text = "Không xác định"
+            }
+        }
     }
 
     private fun showAddManualDialog() {
@@ -283,37 +307,6 @@ class MainActivity : AppCompatActivity() {
     private fun showEditCategoryDialog(transaction: TransactionItem) {
         val categories = arrayOf("Ăn uống", "Mua sắm", "Di chuyển", "Hóa đơn", "Khác")
         AlertDialog.Builder(this).setTitle("Chọn danh mục đúng")
-            .setItems(categories) { _, which ->
-                viewModel.update(transaction.copy(category = categories[which]))
-            }.show()
-    }
-
-    private fun updateDateLabel(calendar: Calendar?) {
-        val cal = calendar ?: return
-        val tvMonthLabel = findViewById<TextView>(R.id.tvCurrentMonth)
-        val btnPrev = findViewById<ImageButton>(R.id.btnPrevMonth)
-        val btnNext = findViewById<ImageButton>(R.id.btnNextMonth)
-
-        when (viewModel.viewMode.value) {
-            ViewMode.MONTH -> {
-                val sdf = SimpleDateFormat("MMMM, yyyy", Locale("vi", "VN"))
-                tvMonthLabel.text = sdf.format(cal.time).replaceFirstChar { it.uppercase() }
-                btnPrev.visibility = View.VISIBLE
-                btnNext.visibility = View.VISIBLE
-            }
-            ViewMode.YEAR -> {
-                tvMonthLabel.text = "Năm ${cal.get(Calendar.YEAR)}"
-                btnPrev.visibility = View.VISIBLE
-                btnNext.visibility = View.VISIBLE
-            }
-            ViewMode.ALL_YEARS -> {
-                tvMonthLabel.text = "Tổng chi tiêu các năm"
-                btnPrev.visibility = View.GONE
-                btnNext.visibility = View.GONE
-            }
-            else -> {
-                tvMonthLabel.text = "Không xác định"
-            }
-        }
+            .setItems(categories) { _, which -> viewModel.update(transaction.copy(category = categories[which])) }.show()
     }
 }
