@@ -59,14 +59,14 @@ class SmsReceiver : BroadcastReceiver() {
             Log.d("BANK_LOGIC", "✅ SMS đầy đủ: '$body' | Số tiền: $finalAmount")
 
             val db = AppDatabase.getDatabase(context)
-            val repo = TransactionRepository(db.transactionDao())
+            val repo = TransactionRepository(db.transactionDao(), db.budgetDao())
 
             CoroutineScope(Dispatchers.IO).launch {
                 repo.insert(
                     TransactionItem(
                         amount = finalAmount,
-                        originalSms = body,      // SMS gốc đầy đủ
-                        category = "Chưa phân loại", // để Repository + AI tự xử lý
+                        originalSms = body,
+                        category = "Chưa phân loại",
                         timestamp = System.currentTimeMillis()
                     )
                 )

@@ -4,7 +4,7 @@ import retrofit2.http.Header
 import retrofit2.http.POST
 // Dữ liệu gửi đi
 data class GroqRequest(
-    val model: String = "llama-3.1-8b-instant", // Model cực nhanh và miễn phí
+    val model: String = "llama-3.1-8b-instant",
     val messages: List<Message>
 )
 

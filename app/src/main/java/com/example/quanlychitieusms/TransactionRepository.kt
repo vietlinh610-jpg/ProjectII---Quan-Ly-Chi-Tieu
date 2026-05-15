@@ -3,7 +3,6 @@ package com.example.quanlychitieusms
 
 
 import android.util.Log
-
 import kotlinx.coroutines.Dispatchers
 
 import kotlinx.coroutines.withContext
@@ -18,7 +17,7 @@ import com.example.quanlychitieusms.BuildConfig
 
 
 
-class TransactionRepository(private val transactionDao: TransactionDao) {
+class TransactionRepository(private val transactionDao: TransactionDao, private val budgetDao: BudgetDao) {
 
 
 
@@ -52,13 +51,13 @@ class TransactionRepository(private val transactionDao: TransactionDao) {
 
 
 
-        // Nếu người dùng tự chọn danh mục thì lưu luôn
+        // Nếu người dùng tự chọn danh mục mặc định lưu
 
         val validCategories = listOf("Ăn uống", "Mua sắm", "Di chuyển", "Hóa đơn")
 
         if (validCategories.contains(item.category)) {
 
-            Log.d("GROQ_DEBU", "✅ Danh mục thủ công: ${item.category}")
+            Log.d("GROQ_DEBU", " Danh mục thủ công: ${item.category}")
 
             transactionDao.insertTransaction(
 
@@ -164,6 +163,12 @@ class TransactionRepository(private val transactionDao: TransactionDao) {
 
     }
 
+
+    fun getBudgetProgress(month: String) = budgetDao.getBudgetProgress(month)
+
+    suspend fun saveBudget(budget: Budget) {
+        budgetDao.insertOrUpdate(budget)
+    }
 
 
     suspend fun delete(transaction: TransactionItem) {
@@ -314,5 +319,6 @@ class TransactionRepository(private val transactionDao: TransactionDao) {
         }
 
     }
+
 
 }

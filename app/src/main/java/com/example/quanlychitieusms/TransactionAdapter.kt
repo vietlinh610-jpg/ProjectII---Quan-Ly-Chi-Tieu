@@ -28,12 +28,11 @@ class TransactionAdapter(
         const val VIEW_TYPE_TRANSACTION = 1
     }
 
-    // --- ViewHolder header ngày ---
+
     class HeaderViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvDateHeader: TextView = view.findViewById(R.id.tvDateHeader)
     }
 
-    // --- ViewHolder giao dịch ---
     class TransactionViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val ivCategoryIcon: ImageView = view.findViewById(R.id.ivCategoryIcon)
         val tvCategory: TextView = view.findViewById(R.id.tvCategory)
@@ -42,7 +41,6 @@ class TransactionAdapter(
         val tvSmsRaw: TextView = view.findViewById(R.id.tvSmsRaw)
     }
 
-    // --- Build danh sách gồm cả header ngày ---
     private fun buildDisplayList(transactions: List<TransactionItem>): List<DisplayItem> {
         val result = mutableListOf<DisplayItem>()
         val keySdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
@@ -104,21 +102,20 @@ class TransactionAdapter(
                 val dec = DecimalFormat("#,###")
                 h.tvAmount.text = "${dec.format(tx.amount)} VND"
 
-                // Màu số tiền
                 val color = if (tx.amount < 0)
                     android.R.color.holo_red_dark
                 else
                     android.R.color.holo_green_dark
                 h.tvAmount.setTextColor(ContextCompat.getColor(h.itemView.context, color))
 
-                // Icon + màu nền theo danh mục
+
                 val (iconRes, bgColor) = getCategoryStyle(tx.category)
                 h.ivCategoryIcon.setImageResource(iconRes)
                 h.ivCategoryIcon.setBackgroundColor(
                     ContextCompat.getColor(h.itemView.context, bgColor)
                 )
 
-                // Long click
+
                 h.itemView.setOnLongClickListener {
                     onLongClick(tx)
                     true
@@ -135,7 +132,7 @@ class TransactionAdapter(
         notifyDataSetChanged()
     }
 
-    // Map danh mục → (icon, màu nền)
+    // Map danh mục
     private fun getCategoryStyle(category: String): Pair<Int, Int> {
         val cat = category.lowercase()
         return when {

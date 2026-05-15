@@ -72,6 +72,11 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
     fun insert(transaction: TransactionItem) = viewModelScope.launch { repository.insert(transaction) }
     fun update(transaction: TransactionItem) = viewModelScope.launch { repository.update(transaction) }
     fun delete(transaction: TransactionItem) = viewModelScope.launch { repository.delete(transaction) }
+    fun getBudgetProgress(month: String) = repository.getBudgetProgress(month)
+
+    fun saveBudget(budget: Budget) = viewModelScope.launch {
+        repository.saveBudget(budget)
+    }
 
 }
 
