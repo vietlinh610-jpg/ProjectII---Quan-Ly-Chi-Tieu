@@ -120,7 +120,7 @@ $details
                     .addConverterFactory(GsonConverterFactory.create())
                     .build()
                 val api = retrofit.create(GroqApiService::class.java)
-                val key = "Bearer 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"
+                val key = "Bearer ${BuildConfig.GROQ_API_KEY}"
 
                 val request = GroqRequest(
                     model = "llama-3.1-8b-instant",
