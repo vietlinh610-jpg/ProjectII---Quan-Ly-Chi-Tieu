@@ -4,12 +4,14 @@ package com.example.quanlychitieusms
 
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import androidx.lifecycle.asFlow
 
 import kotlinx.coroutines.withContext
 
 import androidx.lifecycle.LiveData
 
 import retrofit2.Retrofit
+import kotlinx.coroutines.flow.Flow
 
 import retrofit2.converter.gson.GsonConverterFactory
 import com.example.quanlychitieusms.BuildConfig
@@ -164,7 +166,9 @@ class TransactionRepository(private val transactionDao: TransactionDao, private 
     }
 
 
-    fun getBudgetProgress(month: String) = budgetDao.getBudgetProgress(month)
+    fun getBudgetProgress(month: String): Flow<List<BudgetProgress>> {
+        return budgetDao.getBudgetProgress(month)
+    }
 
     suspend fun saveBudget(budget: Budget) {
         budgetDao.insertOrUpdate(budget)

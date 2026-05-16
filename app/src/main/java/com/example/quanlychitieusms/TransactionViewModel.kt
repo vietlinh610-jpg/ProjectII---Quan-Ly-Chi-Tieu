@@ -24,7 +24,7 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
     // Thêm vào TransactionViewModel.kt
     val budgetProgress: LiveData<List<BudgetProgress>> = currentDate.switchMap { cal ->
         val monthYear = SimpleDateFormat("MM/yyyy", Locale.getDefault()).format(cal.time)
-        repository.getBudgetProgress(monthYear)
+        repository.getBudgetProgress(monthYear).asLiveData()
     }
 
     // Thêm hàm này để lưu ngân sách
@@ -86,7 +86,9 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
     fun insert(transaction: TransactionItem) = viewModelScope.launch { repository.insert(transaction) }
     fun update(transaction: TransactionItem) = viewModelScope.launch { repository.update(transaction) }
     fun delete(transaction: TransactionItem) = viewModelScope.launch { repository.delete(transaction) }
-    fun getBudgetProgress(month: String) = repository.getBudgetProgress(month)
+    fun getBudgetProgress(month: String): LiveData<List<BudgetProgress>> {
+        return repository.getBudgetProgress(month).asLiveData() // thêm .asLiveData()
+    }
 
 
 

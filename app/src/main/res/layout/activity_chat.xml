@@ -31,6 +31,15 @@
             android:textSize="18sp"
             android:textStyle="bold"
             android:layout_marginStart="8dp" />
+
+        <!-- Nút xóa lịch sử -->
+        <ImageButton
+            android:id="@+id/btnClear"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@android:drawable/ic_menu_delete"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:tint="@android:color/white" />
     </LinearLayout>
 
     <!-- Tin nhắn -->
@@ -41,6 +50,22 @@
         android:layout_weight="1"
         android:padding="12dp"
         android:clipToPadding="false" />
+
+    <!-- Gợi ý câu hỏi nhanh -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="6dp">
+
+        <LinearLayout
+            android:id="@+id/chipGroup"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical" />
+    </HorizontalScrollView>
 
     <!-- Input -->
     <LinearLayout
@@ -72,5 +97,4 @@
             android:tint="@android:color/white"
             android:padding="10dp" />
     </LinearLayout>
-
 </LinearLayout>
