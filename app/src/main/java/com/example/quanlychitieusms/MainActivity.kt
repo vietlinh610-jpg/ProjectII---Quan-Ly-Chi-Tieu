@@ -2,6 +2,7 @@ package com.example.quanlychitieusms
 
 import android.Manifest
 import android.app.DatePickerDialog
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
@@ -68,6 +69,22 @@ class MainActivity : AppCompatActivity() {
                 }
                 updateDateLabel(viewModel.currentDate.value)
             }
+        }
+        val fabChat = findViewById<TextView>(R.id.fabChat)
+
+        fabChat.setOnTouchListener { view, event ->
+            when (event.action) {
+                android.view.MotionEvent.ACTION_MOVE -> {
+                    view.x = event.rawX - view.width / 2
+                    view.y = event.rawY - view.height / 2
+                    true
+                }
+                else -> false
+            }
+        }
+
+        fabChat.setOnClickListener {
+            startActivity(Intent(this, ChatActivity::class.java))
         }
 
         findViewById<ImageButton>(R.id.btnPrevMonth).setOnClickListener { viewModel.changeDate(-1) }
